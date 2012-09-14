@@ -1,0 +1,12 @@
+name = Commerce Multicurrency @ nationalbank.kz
+description = Commerce Multicurrency provider that uses nationalbank.kz's api
+
+core = 7.x
+dependencies[] = "commerce_multicurrency"
+
+package = commerce
+
+version = "7.x-0.1"
+core = "7.x"
+project = "commerce_multicurrency_nbkz"
+datestamp = "1347609500"

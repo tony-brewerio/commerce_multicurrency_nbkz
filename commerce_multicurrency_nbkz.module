@@ -1,0 +1,63 @@
+<?php
+
+/**
+ * Fetch the currency exchange rates for the requested currency combination.
+ *
+ * Return an array with the array(target_currency_code => rate) combination.
+ *
+ * @param $currency_code Source currency code.
+ * @param $target_currencies Array with the target currency codes.
+ *
+ * @return array
+ */
+function commerce_multicurrency_nbkz_provider($currency_code, $target_currencies) {
+  $rates_cache_key = __function__.print_r(array($currency_code, $target_currencies), true);
+  
+  $rates = cache_get($rates_cache_key);
+  if ($rates !== false) {
+    return $rates->data;
+  }
+
+  $kzt_rates_cache_key = __function__;
+
+  $kzt_rates = cache_get($kzt_rates_cache_key);
+  if ($kzt_rates === false) {
+    $xml = @simplexml_load_file('http://www.nationalbank.kz/rss/rates_all.xml');
+
+    if (empty($xml->channel->item)) {
+      watchdog(
+        'commerce_multicurrency_nbkz', 'Rate provider nbkz: Unable to fetch / process the currency data of @url',
+        array('@url' => 'http://www.nationalbank.kz/rss/rates_all.xml'),
+        WATCHDOG_ERROR
+      );
+      return false;
+    }
+
+    $kzt_rates = array('KZT' => 1.0);
+    foreach ($xml->channel->item as $item) {
+      $kzt_rates[(string) $item->title] = (float) $item->description;
+    }
+
+    cache_set($kzt_rates_cache_key, $kzt_rates, 'cache', time() + (3600 * 12));
+    
+  } else {
+    $kzt_rates = $kzt_rates->data;
+  }
+
+  $rates = array();
+  foreach ($kzt_rates as $currency => $rate) {
+    $rates[$currency] = $kzt_rates[$currency_code] / $rate;
+  }
+
+  cache_set($rates_cache_key, $rates, 'cache', time() + (3600 * 12));
+
+  return $rates; 
+}
+
+
+function commerce_multicurrency_nbkz_commerce_multicurrency_exchange_rate_sync_provider_info_alter(&$providers) {
+  $providers['nbkz'] = array(
+    'title' => t('National Bank of Kazakhstan'),
+    'callback' => 'commerce_multicurrency_nbkz_provider',
+  );
+}
